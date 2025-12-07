@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3>📢 广告与菜单配置</h3>
+</div>
+
+<ul class="nav nav-tabs mb-4" id="monitorTab" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="menu-tab" data-bs-toggle="tab" data-bs-target="#menu" type="button">
+            <i class="fas fa-th-large me-2"></i> 机器人主菜单
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="ads-tab" data-bs-toggle="tab" data-bs-target="#ads" type="button">
+            <i class="fas fa-ad me-2"></i> 消息底部广告
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="monitorTabContent">
+    
+    <!-- Tab 1: 菜单与配置 -->
+    <div class="tab-pane fade show active" id="menu">
+        <div class="row">
+            <!-- 左侧预览 -->
+            <div class="col-md-4">
+                <div class="card bg-light">
+                    <div class="card-header text-center">📱 机器人界面预览</div>
+                    <div class="card-body p-2">
+                        <div class="bg-white p-3 rounded mb-2 shadow-sm">👋 欢迎使用监控机器人...</div>
+                        <!-- 这里展示底部 Reply 键盘的效果预览 -->
+                        <div class="d-grid gap-2 mt-3">
+                            <div class="btn-group w-100"><button class="btn btn-secondary btn-sm disabled">⚙️ 监听管理</button></div>
+                            <div class="btn-group w-100"><button class="btn btn-secondary btn-sm disabled">🔔 通知控制</button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧配置 -->
+            <div class="col-md-8">
+                
+                <!-- 1. 聊天底部常驻菜单配置 (Reply) -->
+                <div class="card border-warning mb-4">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between">
+                        <span><i class="fas fa-keyboard"></i> 聊天底部常驻菜单 (Reply Keyboard)</span>
+                        <button class="btn btn-sm btn-dark" onclick="saveReplyMenu()">保存并生效</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-light small p-2 mb-3">
+                            设置聊天窗口下方的大按钮。<br>
+                            <b>触发动作 (Callback)：</b> 请填写对应的功能代码，例如 <code>buy_vip</code>。
+                        </div>
+                        <table class="table table-sm align-middle">
+                            <thead><tr><th width="60">行</th><th>按钮文字</th><th>触发动作 (Callback)</th><th width="50">删</th></tr></thead>
+                            <tbody id="replyTableBody"></tbody>
+                        </table>
+                        <button class="btn btn-dashed w-100 text-muted mt-2 border" onclick="addReplyRow()">+ 添加按钮</button>
+                    </div>
+                </div>
+
+                <!-- 2. 快捷词配置 -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between">
+                        <span>🏷️ 快捷关键词管理 (聊天框下方)</span>
+                        <button class="btn btn-sm btn-success" onclick="savePresetsList()">保存</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-light small p-2 mb-2">这些词会在用户点击“添加关键词”时弹出，方便点选。</div>
+                        <div id="presetsContainer" class="d-flex flex-wrap gap-2"></div>
+                        <div class="input-group mt-3">
+                            <input type="text" class="form-control form-control-sm" id="newPresetInput" placeholder="输入新词 (例如: 跑分)">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="addPresetTag()">添加</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 左下角菜单按钮设置 -->
+                <div class="card border-info mb-4">
+                    <div class="card-header bg-info text-white d-flex justify-content-between">
+                        <span><i class="fas fa-bars"></i> 左下角指令菜单 (Menu Button)</span>
+                        <button class="btn btn-sm btn-light text-dark" onclick="saveCommands()">更新到机器人</button>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm align-middle">
+                            <thead><tr><th width="30%">指令 (e.g. menu)</th><th>描述 (e.g. 打开菜单)</th><th width="50">删</th></tr></thead>
+                            <tbody id="cmdTableBody"></tbody>
+                        </table>
+                        <button class="btn btn-dashed w-100 text-muted mt-2 border" onclick="addCmdRow()">+ 添加指令</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: 广告 -->
+    <div class="tab-pane fade" id="ads">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between">
+                <span>📣 消息底部广告按钮</span>
+                <button class="btn btn-sm btn-success" onclick="saveAds()">保存广告设置</button>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered table-sm align-middle">
+                    <thead><tr><th width="50">序</th><th>文字</th><th>链接</th><th width="50">删</th></tr></thead>
+                    <tbody id="adsTableBody"></tbody>
+                </table>
+                <button class="btn btn-outline-secondary w-100 btn-sm" onclick="addAdRow()">+ 添加一行</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- 通用函数 ---
+function createDelBtn(onclick) {
+    return `<button class="btn btn-sm text-danger" onclick="${onclick}"><i class="fas fa-trash"></i></button>`;
+}
+
+// 1. [新增] 聊天底部常驻菜单 (Reply Menu)
+async function loadReplyMenu() {
+    try {
+        const res = await fetch('/api/settings/reply_menus');
+        const items = await res.json();
+        const tbody = document.getElementById('replyTableBody');
+        tbody.innerHTML = '';
+        if(!items || items.length===0) { addReplyRow(1, '⚙️ 监听管理', 'menu_monitor'); }
+        else { items.forEach(i => addReplyRow(i.row_index, i.text, i.callback)); }
+    } catch(e){}
+}
+function addReplyRow(r=1, t='', c='') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="number" class="form-control form-control-sm r-row" value="${r}"></td>
+        <td><input type="text" class="form-control form-control-sm r-text" value="${t}"></td>
+        <td><input type="text" class="form-control form-control-sm r-call" value="${c}" placeholder="callback"></td>
+        <td>${createDelBtn("this.closest('tr').remove()")}</td>
+    `;
+    document.getElementById('replyTableBody').appendChild(tr);
+}
+async function saveReplyMenu() {
+    const items = []; document.querySelectorAll('#replyTableBody tr').forEach(tr => items.push({row: parseInt(tr.querySelector('.r-row').value), text: tr.querySelector('.r-text').value, callback: tr.querySelector('.r-call').value}));
+    await fetch('/api/settings/reply_menus', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({items}) });
+    alert("✅ 底部菜单已保存！发送 /menu 查看效果。");
+}
+
+// 2. 快捷词 (Tags)
+async function loadPresets() {
+    try {
+        const res = await fetch('/api/settings/presets_list');
+        const words = await res.json();
+        const div = document.getElementById('presetsContainer');
+        div.innerHTML = '';
+        words.forEach(w => renderPresetTag(w));
+    } catch(e){}
+}
+function renderPresetTag(word) {
+    const span = document.createElement('span');
+    span.className = "badge bg-secondary p-2 d-flex align-items-center gap-2";
+    span.innerHTML = `${word} <i class="fas fa-times" onclick="this.parentElement.remove()" style="cursor:pointer"></i>`;
+    document.getElementById('presetsContainer').appendChild(span);
+}
+function addPresetTag() {
+    const input = document.getElementById('newPresetInput');
+    const val = input.value.trim();
+    if(val) { renderPresetTag(val); input.value = ''; }
+}
+async function savePresetsList() {
+    const words = []; document.querySelectorAll('#presetsContainer span').forEach(s => words.push({word: s.innerText.trim()}));
+    await fetch('/api/settings/presets_list', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({words}) });
+    alert("✅ 快捷词已保存");
+}
+
+// 3. 左下角指令 (Menu Button)
+async function loadCommands() {
+    try {
+        const res = await fetch('/api/settings/commands');
+        const cmds = await res.json();
+        const tbody = document.getElementById('cmdTableBody');
+        tbody.innerHTML = '';
+        if(!cmds || cmds.length===0) { addCmdRow('menu', '打开菜单'); }
+        else { cmds.forEach(c => addCmdRow(c.command, c.description)); }
+    } catch(e){}
+}
+function addCmdRow(c='', d='') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><div class="input-group input-group-sm"><span class="input-group-text">/</span><input type="text" class="form-control c-cmd" value="${c}"></div></td><td><input type="text" class="form-control form-control-sm c-desc" value="${d}"></td><td>${createDelBtn("this.closest('tr').remove()")}</td>`;
+    document.getElementById('cmdTableBody').appendChild(tr);
+}
+async function saveCommands() {
+    const cmds = []; document.querySelectorAll('#cmdTableBody tr').forEach(tr => cmds.push({ command: tr.querySelector('.c-cmd').value, description: tr.querySelector('.c-desc').value }));
+    const btn = event.target; btn.disabled=true; btn.innerText='同步中...';
+    try {
+        await fetch('/api/settings/commands', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({commands: cmds}) });
+        alert("✅ 指令已同步！");
+    } finally { btn.disabled=false; btn.innerText='更新到机器人'; }
+}
+
+// 4. 广告
+async function loadAds() {
+    try {
+        const res = await fetch('/api/settings/ads');
+        const ads = await res.json();
+        const tbody = document.getElementById('adsTableBody');
+        tbody.innerHTML = '';
+        ads.forEach(ad => addAdRow(ad.sort_order, ad.text, ad.url));
+    } catch(e){}
+}
+function addAdRow(s=0, t='', u='') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="number" class="form-control form-control-sm a-sort" value="${s}"></td><td><input type="text" class="form-control form-control-sm a-text" value="${t}"></td><td><input type="text" class="form-control form-control-sm a-url" value="${u}"></td><td>${createDelBtn("this.closest('tr').remove()")}</td>`;
+    document.getElementById('adsTableBody').appendChild(tr);
+}
+async function saveAds() {
+    const ads = []; document.querySelectorAll('#adsTableBody tr').forEach(tr => ads.push({sort_order: parseInt(tr.querySelector('.a-sort').value), text: tr.querySelector('.a-text').value, url: tr.querySelector('.a-url').value}));
+    await fetch('/api/settings/ads', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ads}) });
+    alert("✅ 广告已保存");
+}
+
+// 初始化加载 (删除了 loadMenu 和 loadSupport)
+loadReplyMenu(); loadPresets(); loadCommands(); loadAds();
+</script>
+{% endblock %}

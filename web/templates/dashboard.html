@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h3>📊 系统概览</h3>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-4 mb-4">
+    <!-- 总用户数 -->
+    <div class="col-md-3">
+        <div class="card p-3 border-start border-4 border-primary shadow-sm h-100">
+            <div class="text-muted small text-uppercase fw-bold">总用户数</div>
+            <div class="h2 text-primary mt-2" id="stat-users">
+                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 总收入 -->
+    <div class="col-md-3">
+        <div class="card p-3 border-start border-4 border-success shadow-sm h-100">
+            <div class="text-muted small text-uppercase fw-bold">总收入 (USDT)</div>
+            <div class="h2 text-success mt-2" id="stat-revenue">
+                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 在线监听账号 -->
+    <div class="col-md-3">
+        <div class="card p-3 border-start border-4 border-warning shadow-sm h-100">
+            <div class="text-muted small text-uppercase fw-bold">在线监听账号</div>
+            <div class="h2 text-warning mt-2" id="stat-bots">
+                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 今日消息捕获 -->
+    <div class="col-md-3">
+        <div class="card p-3 border-start border-4 border-info shadow-sm h-100">
+            <div class="text-muted small text-uppercase fw-bold">今日消息捕获 (条)</div>
+            <div class="h2 text-info mt-2" id="stat-msgs">
+                <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 实时日志 -->
+<div class="card shadow-sm">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-terminal me-2"></i> 实时系统日志 (Worker & System)</span>
+        <span class="badge bg-success" id="log-status">Live</span>
+    </div>
+    <div class="card-body bg-black p-0">
+        <div id="log-container" style="height: 400px; overflow-y: auto; padding: 15px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; color: #0f0; background-color: #1e1e1e;">
+            <div class="text-muted">正在连接日志流...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. 获取统计数据
+    async function fetchStats() {
+        try {
+            const res = await fetch('/api/dashboard/stats');
+            const data = await res.json();
+            
+            // 简单的动画效果函数
+            updateNumber('stat-users', data.users);
+            updateNumber('stat-revenue', data.revenue.toFixed(2));
+            
+            const botText = `${data.bots_online} / ${data.bots_total}`;
+            document.getElementById('stat-bots').innerText = botText;
+            
+            updateNumber('stat-msgs', data.msgs_today);
+            
+        } catch (e) {
+            console.error("Stats fetch error", e);
+        }
+    }
+
+    function updateNumber(elementId, newValue) {
+        const el = document.getElementById(elementId);
+        // 简单处理，如果内容不是数字（比如是加载图标），直接替换
+        if (el.querySelector('.spinner-border')) {
+            el.innerText = newValue;
+        } else {
+            el.innerText = newValue;
+        }
+    }
+
+    // 2. 获取日志
+    async function fetchLogs() {
+        try {
+            const res = await fetch('/api/dashboard/logs');
+            const data = await res.json();
+            
+            const container = document.getElementById('log-container');
+            
+            if (data.logs && data.logs.length > 0) {
+                // 清空并重新填充 (简单粗暴，防止重复)
+                // 生产环境通常用 append，这里为了演示简单直接覆盖
+                const logHtml = data.logs.map(line => {
+                    // 给关键词上色
+                    let color = '#ccc'; // 默认灰色
+                    if (line.includes('INFO')) color = '#4caf50'; // 绿色
+                    if (line.includes('WARNING')) color = '#ff9800'; // 橙色
+                    if (line.includes('ERROR')) color = '#f44336'; // 红色
+                    if (line.includes('Worker')) color = '#2196f3'; // 蓝色
+                    
+                    return `<div style="margin-bottom: 4px; color: ${color}; border-bottom: 1px solid #333; padding-bottom: 2px;">${line}</div>`;
+                }).join('');
+                
+                container.innerHTML = logHtml;
+            }
+        } catch (e) {
+            document.getElementById('log-status').className = 'badge bg-danger';
+            document.getElementById('log-status').innerText = 'Offline';
+        }
+    }
+
+    // 初始化
+    fetchStats();
+    fetchLogs();
+
+    // 定时刷新 (每3秒刷新日志，每5秒刷新统计)
+    setInterval(fetchLogs, 3000);
+    setInterval(fetchStats, 5000);
+
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TG SaaS后台{% endblock %}</title>
+    <!-- Bootstrap 5 & FontAwesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/custom.css" rel="stylesheet">
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row">
+        <!-- 左侧导航 -->
+        <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse show">
+            <div class="brand">
+                <i class="fab fa-telegram-plane"></i> 财富监控 SaaS
+            </div>
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'dashboard' %}active{% endif %}" href="/">
+                            <i class="fas fa-tachometer-alt me-2"></i> 仪表盘
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'users' %}active{% endif %}" href="/users">
+                            <i class="fas fa-users me-2"></i> 用户管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'finance' %}active{% endif %}" href="/finance">
+                            <i class="fas fa-wallet me-2"></i> 会员与支付
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'monitor' %}active{% endif %}" href="/monitor">
+                            <i class="fas fa-satellite-dish me-2"></i> 监听与广告
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'accounts' %}active{% endif %}" href="/accounts">
+                            <i class="fas fa-user-secret me-2"></i> 账号池管理
+                        </a>
+                    </li>
+                    <!-- [新增] 智能私信入口 -->
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'autodm' %}active{% endif %}" href="/autodm">
+                            <i class="fas fa-paper-plane me-2"></i> 智能私信矩阵
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- 右侧内容 -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

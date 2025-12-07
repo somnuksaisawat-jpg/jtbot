@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+<ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="worker-tab" data-bs-toggle="tab" data-bs-target="#worker" type="button">🛰 监听账号池 (系统)</button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="dm-tab" data-bs-toggle="tab" data-bs-target="#dm" type="button">📩 私信账号 (用户)</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="myTabContent">
+    
+    <!-- 监听账号管理 -->
+    <div class="tab-pane fade show active" id="worker">
+        <div class="card mb-4">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <h5>添加新的监听账号 (UserBot)</h5>
+                    <p class="text-muted mb-0">系统将使用此账号加入群组并捕获消息。需扫码登录。</p>
+                </div>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">+ 添加账号</button>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for bot in workers %}
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <h5>{{ bot.phone }}</h5>
+                            <span class="badge bg-success">在线</span>
+                        </div>
+                        <p class="small text-muted">Session ID: {{ bot.id }}</p>
+                        <button class="btn btn-sm btn-outline-danger w-100" onclick="deleteSession('{{ bot.phone }}')">下线 / 删除</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 私信账号管理 -->
+    <div class="tab-pane fade" id="dm">
+        <div class="alert alert-info">此处展示用户提交的私信小号，管理员可协助重新验证。</div>
+        <table class="table">
+            <thead><tr><th>所属用户</th><th>账号手机</th><th>状态</th><th>今日限额</th><th>操作</th></tr></thead>
+            <tbody>
+                <!-- 数据填充区 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 登录模态框 (核心功能) -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">登录 Telegram 账号</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label>手机号 (带区号, 如 +1740...)</label>
+                        <!-- 给按钮加了 id="phone" -->
+                        <input type="text" class="form-control" id="phone" required placeholder="+1234567890">
+                    </div>
+                    <div class="d-grid mb-3">
+                        <!-- ⚠️ 关键修改：去掉了 onclick="alert..."，加了 id="btnSendCode" -->
+                        <button type="button" class="btn btn-primary" id="btnSendCode">发送验证码</button>
+                    </div>
+                    <div class="mb-3">
+                        <label>验证码 (OTP)</label>
+                        <input type="text" class="form-control" id="code" placeholder="输入TG收到的5位数字">
+                    </div>
+                    <div class="mb-3">
+                        <label>两步验证密码 (如果有)</label>
+                        <input type="password" class="form-control" id="password">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <!-- 加了 id="btnLogin" -->
+                <button type="button" class="btn btn-success" id="btnLogin">登录并保存 Session</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript 逻辑 -->
+<script>
+// 绑定【发送验证码】按钮
+document.getElementById('btnSendCode').onclick = async function() {
+    const phone = document.getElementById('phone').value;
+    if(!phone) return alert("请输入手机号，包含国际区号 (例如 +1...)");
+    
+    // 禁用按钮防止重复点击
+    const btn = this;
+    btn.disabled = true;
+    btn.innerText = "正在请求 TG 服务器...";
+    
+    try {
+        const res = await fetch('/api/login/send_code', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: phone})
+        });
+        const data = await res.json();
+        
+        if(res.ok) {
+            alert("✅ " + data.message + "\n请查看您的 Telegram 客户端（不是短信）");
+            btn.innerText = "验证码已发送";
+        } else {
+            alert("❌ 发送失败: " + data.detail);
+            btn.disabled = false;
+            btn.innerText = "发送验证码";
+        }
+    } catch(e) {
+        console.error(e);
+        alert("❌ 网络连接错误，请检查服务器日志");
+        btn.disabled = false;
+        btn.innerText = "发送验证码";
+    }
+};
+
+// 绑定【登录】按钮
+document.getElementById('btnLogin').onclick = async function() {
+    const phone = document.getElementById('phone').value;
+    const code = document.getElementById('code').value;
+    const pwd = document.getElementById('password').value;
+    
+    if(!code) return alert("请输入验证码");
+    
+    const btn = this;
+    btn.disabled = true;
+    btn.innerText = "登录中...";
+    
+    try {
+        const res = await fetch('/api/login/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: phone, code: code, password: pwd})
+        });
+        const data = await res.json();
+        
+        if(res.ok) {
+            if (data.status === '2fa_required') {
+                alert("🔒 该账号开启了两步验证，请输入密码 (Cloud Password) 后再次点击登录。");
+                btn.disabled = false;
+                btn.innerText = "确认登录";
+            } else {
+                alert("🎉 " + data.message);
+                location.reload(); // 刷新页面
+            }
+        } else {
+            alert("❌ 登录失败: " + data.detail);
+            btn.disabled = false;
+            btn.innerText = "登录并保存 Session";
+        }
+    } catch(e) {
+        alert("登录请求失败");
+        btn.disabled = false;
+        btn.innerText = "登录并保存 Session";
+    }
+};
+// ... (保留之前的 login 逻辑) ...
+
+// [新增] 删除账号逻辑
+async function deleteSession(phone) {
+    if (!confirm(`确定要删除账号 ${phone} 吗？\n删除后需要重新扫码登录。`)) return;
+
+    try {
+        const res = await fetch('/api/workers/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({phone: phone})
+        });
+        const data = await res.json();
+        
+        if (data.status === 'success') {
+            alert("🗑 账号已删除");
+            location.reload(); // 刷新页面
+        } else {
+            alert("❌ 删除失败");
+        }
+    } catch (e) {
+        alert("网络错误");
+    }
+}
+</script>
+{% endblock %}

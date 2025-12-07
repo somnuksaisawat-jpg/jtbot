@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row">
+    <!-- 左侧：卡密生成 (保留) -->
+    <div class="col-md-5">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white"><i class="fas fa-ticket-alt text-primary"></i> 生成充值卡密</div>
+            <div class="card-body">
+                <form id="genForm">
+                    <div class="mb-3">
+                        <label>类型</label>
+                        <select class="form-select" id="cdkType">
+                            <option value="day">天卡 (Days)</option>
+                            <option value="hour">小时卡 (Hours)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>时长数值</label>
+                        <input type="number" class="form-control" id="cdkValue" placeholder="如 30">
+                    </div>
+                    <div class="mb-3">
+                        <label>生成数量</label>
+                        <input type="number" class="form-control" id="cdkCount" value="10">
+                    </div>
+                    <button type="button" class="btn btn-success w-100" onclick="generateCDK()">
+                        <i class="fas fa-file-export"></i> 生成并导出 TXT
+                    </button>
+                </form>
+                <hr>
+                <h6 class="text-muted">最近生成的卡密</h6>
+                <div class="table-responsive" style="max-height: 200px;">
+                    <table class="table table-sm table-striped" style="font-size: 0.85rem;">
+                        <thead><tr><th>代码</th><th>时长</th><th>状态</th></tr></thead>
+                        <tbody id="cdkTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：支付配置 & 套餐管理 -->
+    <div class="col-md-7">
+        <!-- 1. 收款配置 -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white"><i class="fas fa-wallet text-warning"></i> USDT-TRC20 收款设置</div>
+            <div class="card-body">
+                <div class="input-group mb-2">
+                    <span class="input-group-text">收款地址</span>
+                    <input type="text" class="form-control" id="usdtAddr" value="{{ config.usdt_address }}">
+                </div>
+                <div class="input-group mb-2">
+                    <span class="input-group-text">汇率(CNY)</span>
+                    <input type="number" class="form-control" id="usdtRate" value="7.3">
+                </div>
+                <button class="btn btn-primary btn-sm w-100" onclick="savePayment()">保存配置</button>
+            </div>
+        </div>
+
+        <!-- 2. 套餐管理 -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-list"></i> 会员套餐配置</span>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPlanModal">+ 添加套餐</button>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th>名称</th><th>价格(U)</th><th>时长</th><th>排序</th><th>操作</th></tr></thead>
+                    <tbody id="planTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加套餐模态框 -->
+<div class="modal fade" id="addPlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">添加会员套餐</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-2"><label>套餐名称</label><input type="text" class="form-control" id="pName" placeholder="例如: 月卡"></div>
+                <div class="mb-2"><label>价格 (USDT)</label><input type="number" class="form-control" id="pPrice" placeholder="15"></div>
+                <div class="row g-2 mb-2">
+                    <div class="col-8"><label>时长数值</label><input type="number" class="form-control" id="pDur" placeholder="30"></div>
+                    <div class="col-4"><label>单位</label><select class="form-select" id="pUnit"><option value="day">天</option><option value="month">月</option><option value="year">年</option></select></div>
+                </div>
+                <div class="mb-2"><label>排序 (越小越前)</label><input type="number" class="form-control" id="pSort" value="0"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" onclick="addPlan()">保存</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- 卡密逻辑 (保持) ---
+async function generateCDK() {
+    const type=document.getElementById('cdkType').value, value=document.getElementById('cdkValue').value, count=document.getElementById('cdkCount').value;
+    const res = await fetch('/api/finance/cdks/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type,value,count})});
+    const data = await res.json();
+    if(data.status==='success'){
+        const blob = new Blob([data.codes.join('\n')], {type:"text/plain"});
+        const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`CDK_${value}.txt`; a.click();
+        loadCDKs();
+    }
+}
+async function loadCDKs() {
+    const res = await fetch('/api/finance/cdks');
+    document.getElementById('cdkTable').innerHTML = (await res.json()).map(r=>`<tr><td><code>${r.code}</code></td><td>${r.duration}${r.unit}</td><td><span class="badge ${r.status=='unused'?'bg-success':'bg-secondary'}">${r.status}</span></td></tr>`).join('');
+}
+
+// --- 支付配置逻辑 ---
+async function savePayment() {
+    await fetch('/api/settings/payment', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+        usdt_address: document.getElementById('usdtAddr').value,
+        usdt_rate: parseFloat(document.getElementById('usdtRate').value),
+        monthly_price: 0 // 废弃字段，留0
+    })});
+    alert("保存成功");
+}
+
+// ... (前面的代码保持不变) ...
+
+// --- 套餐管理逻辑 (修改了单位显示) ---
+async function loadPlans() {
+    const res = await fetch('/api/finance/plans');
+    const rows = await res.json();
+    
+    // 🟢 [修改] 单位转中文映射
+    const unitMap = { 'day': '天', 'month': '月', 'year': '年', 'hour': '小时' };
+    
+    document.getElementById('planTable').innerHTML = rows.map(r => `
+        <tr>
+            <td>${r.name}</td>
+            <td class="text-success fw-bold">${r.price} U</td>
+            <td>${r.duration} ${unitMap[r.unit] || r.unit}</td>
+            <td>${r.sort_order}</td>
+            <td><button class="btn btn-sm text-danger" onclick="delPlan(${r.id})"><i class="fas fa-trash"></i></button></td>
+        </tr>
+    `).join('');
+}
+
+// ... (后面的代码保持不变) ...
+async function addPlan() {
+    await fetch('/api/finance/plans', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+        name: document.getElementById('pName').value,
+        price: parseFloat(document.getElementById('pPrice').value),
+        duration: parseInt(document.getElementById('pDur').value),
+        unit: document.getElementById('pUnit').value,
+        sort_order: parseInt(document.getElementById('pSort').value)
+    })});
+    location.reload();
+}
+async function delPlan(id) {
+    if(confirm('确定删除?')) {
+        await fetch('/api/finance/plans/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
+        loadPlans();
+    }
+}
+
+// Init
+loadCDKs(); loadPlans();
+</script>
+{% endblock %}
